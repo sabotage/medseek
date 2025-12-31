@@ -12,6 +12,7 @@ type ChatService struct {
 	deepseekClient *deepseek.Client
 	sessions       map[string]*models.ChatSession
 	messages       map[string][]*models.Message
+	specialties    map[string]string // session_id -> specialty
 	mu             sync.RWMutex
 }
 
@@ -21,11 +22,12 @@ func NewChatService(deepseekAPIKey string) *ChatService {
 		deepseekClient: deepseek.NewClient(deepseekAPIKey),
 		sessions:       make(map[string]*models.ChatSession),
 		messages:       make(map[string][]*models.Message),
+		specialties:    make(map[string]string),
 	}
 }
 
-// CreateSession creates a new chat session
-func (cs *ChatService) CreateSession(sessionID, userID string) *models.ChatSession {
+// CreateSession creates a new chat session with specialty
+func (cs *ChatService) CreateSession(sessionID, userID, specialty string) *models.ChatSession {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
@@ -37,6 +39,11 @@ func (cs *ChatService) CreateSession(sessionID, userID string) *models.ChatSessi
 
 	cs.sessions[sessionID] = session
 	cs.messages[sessionID] = make([]*models.Message, 0)
+	// Default to obstetrics if specialty not specified
+	if specialty == "" {
+		specialty = "obstetrics"
+	}
+	cs.specialties[sessionID] = specialty
 
 	return session
 }
@@ -77,13 +84,14 @@ func (cs *ChatService) GetSessionMessages(sessionID string) []*models.Message {
 func (cs *ChatService) ProcessMessage(sessionID string, userMessage string) (string, error) {
 	cs.mu.RLock()
 	sessionMsgs := cs.messages[sessionID]
+	specialty := cs.specialties[sessionID]
 	cs.mu.RUnlock()
 
-	// Build DeepSeek messages with system prompt
+	// Build DeepSeek messages with appropriate system prompt based on specialty
 	messages := []models.DeepSeekMsg{
 		{
 			Role:    "system",
-			Content: deepseek.GetDoctorConsultationPrompt(),
+			Content: deepseek.GetDoctorConsultationPrompt(specialty),
 		},
 	}
 

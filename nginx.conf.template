@@ -1,0 +1,140 @@
+# 信臣健康互联网医院 - Nginx配置
+# 文件位置: /etc/nginx/sites-available/medseek
+# 
+# 此配置将所有 /medseek 路径代理到后端服务
+# 访问地址：http://your-server-ip/medseek
+
+server {
+    listen 80;
+    # 不指定server_name，监听所有请求
+
+    # 访问日志
+    access_log /var/log/nginx/medseek-access.log;
+    error_log /var/log/nginx/medseek-error.log;
+
+    # 客户端最大上传大小
+    client_max_body_size 10M;
+
+    # WebSocket连接支持 - /medseek/ws路径
+    location /medseek/ws {
+        proxy_pass http://localhost:8080/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Prefix /medseek;
+        
+        # WebSocket超时设置
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+        proxy_connect_timeout 60;
+    }
+
+    # API请求代理 - /medseek/api路径
+    location /medseek/api/ {
+        proxy_pass http://localhost:8080/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Prefix /medseek;
+        
+        # 超时设置
+        proxy_connect_timeout 60;
+        proxy_send_timeout 60;
+        proxy_read_timeout 60;
+    }
+
+    # 健康检查端点
+    location /medseek/health {
+        proxy_pass http://localhost:8080/health;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # 静态文件和其他请求 - /medseek路径
+    location /medseek/ {
+        proxy_pass http://localhost:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Prefix /medseek;
+    }
+
+    # 根路径重定向到 /medseek
+    location = / {
+        return 301 /medseek/;
+    }
+
+    # 安全头部
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+}
+
+# ============================================
+# 可选：HTTPS配置
+# ============================================
+# 如果需要HTTPS，使用Let's Encrypt免费证书：
+# 
+# server {
+#     listen 443 ssl http2;
+#     # 不指定server_name，监听所有HTTPS请求
+#
+#     ssl_certificate /etc/letsencrypt/live/your-ip-or-domain/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/your-ip-or-domain/privkey.pem;
+#
+#     ssl_protocols TLSv1.2 TLSv1.3;
+#     ssl_ciphers HIGH:!aNULL:!MD5;
+#     ssl_prefer_server_ciphers on;
+#
+#     # 访问日志
+#     access_log /var/log/nginx/medseek-access.log;
+#     error_log /var/log/nginx/medseek-error.log;
+#
+#     # WebSocket连接支持
+#     location /medseek/ws {
+#         proxy_pass http://localhost:8080/ws;
+#         proxy_http_version 1.1;
+#         proxy_set_header Upgrade $http_upgrade;
+#         proxy_set_header Connection "upgrade";
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         proxy_read_timeout 86400;
+#         proxy_send_timeout 86400;
+#     }
+#
+#     # API请求代理
+#     location /medseek/api/ {
+#         proxy_pass http://localhost:8080/api/;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#     }
+#
+#     # 其他请求
+#     location /medseek/ {
+#         proxy_pass http://localhost:8080/;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#     }
+#
+#     location = / {
+#         return 301 /medseek/;
+#     }
+# }
+#
+# # HTTP重定向到HTTPS
+# server {
+#     listen 80;
+#     return 301 https://$host$request_uri;
+# }

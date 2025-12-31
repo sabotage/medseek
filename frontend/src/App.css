@@ -1,8 +1,39 @@
 .app {
-  min-height: 100vh;
+  /* iOS Safari中100vh会包含地址栏，导致溢出 */
+  width: 100%;
+  height: 100vh;
+  height: 100dvh; /* 使用dynamic viewport height for iOS */
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
+  overflow: hidden;
+  position: relative;
+  /* 防止iOS Safari中的缩放 */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased;
+  /* iOS specific */
+  -webkit-appearance: none;
+}
+
+/* iOS特殊处理 */
+@supports (padding: max(0px)) {
+  .app {
+    padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  }
+}
+
+/* 防止iOS Safari的缩放问题 */
+@supports (-webkit-touch-callout: none) {
+  .app {
+    height: 100vh;
+    height: calc(var(--vh, 1vh) * 100);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
 }

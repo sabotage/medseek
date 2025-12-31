@@ -1,0 +1,24 @@
+[Unit]
+Description=信臣健康互联网医院服务
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+WorkingDirectory=/home/YOUR_USERNAME/medseek-deploy
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/home/YOUR_USERNAME/medseek-deploy/.env
+ExecStart=/home/YOUR_USERNAME/medseek-deploy/medseek
+Restart=always
+RestartSec=10
+
+# 日志输出
+StandardOutput=append:/var/log/medseek/access.log
+StandardError=append:/var/log/medseek/error.log
+
+# 安全设置
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

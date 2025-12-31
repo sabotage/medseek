@@ -1,14 +1,39 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MedSeek - Online Doctor Consultation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="信臣健康互联网医院" />
+    <meta name="format-detection" content="telephone=no,email=no,address=no" />
+    <meta name="theme-color" content="#667eea" />
+    <meta name="color-scheme" content="light" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>信臣健康互联网医院 - 在线医生咨询</title>
     <style>
+      :root {
+        --vh: 1vh;
+        --safe-area-inset-top: 0px;
+        --safe-area-inset-right: 0px;
+        --safe-area-inset-bottom: 0px;
+        --safe-area-inset-left: 0px;
+      }
+
       * {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
+        /* iOS Safari specific */
+        -webkit-box-sizing: border-box;
+        -webkit-font-smoothing: antialiased;
+        -webkit-touch-callout: none;
+      }
+
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
       }
 
       body {
@@ -19,10 +44,19 @@
         -moz-osx-font-smoothing: grayscale;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
+        /* iOS Safari specific */
+        height: 100vh;
+        height: 100dvh;
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
       }
 
       #root {
-        min-height: 100vh;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
       }
     </style>
   </head>

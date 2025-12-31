@@ -11,12 +11,23 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
+  /* iOS变量 */
+  --vh: 1vh;
 }
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  /* iOS Safari specific */
+  -webkit-box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -27,9 +38,19 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
   min-height: 100vh;
-  color: var(--text-primary);
+  height: 100%;
+  overflow: hidden;
+  /* iOS Safari specific */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -webkit-text-size-adjust: 100%;
+  /* 防止iOS自动缩放 */
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
-  min-height: 100vh;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }

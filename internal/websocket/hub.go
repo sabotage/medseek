@@ -15,7 +15,7 @@ import (
 
 type Hub struct {
 	clients    map[*Client]bool
-	broadcast  chan []byte
+	sessions   map[string]map[*Client]bool // session_id -> clients in that session
 	register   chan *Client
 	unregister chan *Client
 	mu         sync.RWMutex
@@ -34,7 +34,7 @@ type Client struct {
 func NewHub(chatSvc *service.ChatService) *Hub {
 	return &Hub{
 		clients:    make(map[*Client]bool),
-		broadcast:  make(chan []byte, 256),
+		sessions:   make(map[string]map[*Client]bool),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		chatSvc:    chatSvc,
@@ -48,31 +48,31 @@ func (h *Hub) Run() {
 		case client := <-h.register:
 			h.mu.Lock()
 			h.clients[client] = true
+			// Add client to session-specific map
+			if h.sessions[client.SessionID] == nil {
+				h.sessions[client.SessionID] = make(map[*Client]bool)
+			}
+			h.sessions[client.SessionID][client] = true
 			h.mu.Unlock()
-			log.Printf("Client registered: %s", client.ID)
+			log.Printf("Client registered: %s in session: %s", client.ID, client.SessionID)
 
 		case client := <-h.unregister:
 			h.mu.Lock()
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
+				// Remove from session-specific map
+				if sessionClients, ok := h.sessions[client.SessionID]; ok {
+					delete(sessionClients, client)
+					if len(sessionClients) == 0 {
+						delete(h.sessions, client.SessionID)
+					}
+				}
 				close(client.send)
 				h.mu.Unlock()
-				log.Printf("Client unregistered: %s", client.ID)
+				log.Printf("Client unregistered: %s from session: %s", client.ID, client.SessionID)
 			} else {
 				h.mu.Unlock()
 			}
-
-		case message := <-h.broadcast:
-			h.mu.RLock()
-			for client := range h.clients {
-				select {
-				case client.send <- message:
-				default:
-					close(client.send)
-					delete(h.clients, client)
-				}
-			}
-			h.mu.RUnlock()
 		}
 	}
 }
@@ -123,8 +123,9 @@ func (c *Client) readPump() {
 		// Add user message to service
 		c.hub.chatSvc.AddMessage(c.SessionID, c.ID, "user", wsMsg.Content)
 
-		// Send message to all clients in session
-		c.hub.broadcast <- message
+		// Send user message to clients in this session only
+		msgBytes, _ := json.Marshal(wsMsg)
+		c.hub.broadcastToSession(c.SessionID, msgBytes)
 
 		// Process message and get response
 		response, err := c.hub.chatSvc.ProcessMessage(c.SessionID, wsMsg.Content)
@@ -132,24 +133,24 @@ func (c *Client) readPump() {
 			log.Printf("Failed to process message: %v", err)
 			errMsg := models.WebSocketMessage{
 				Type:    "error",
-				Content: fmt.Sprintf("Error processing message: %v", err),
+				Content: fmt.Sprintf("处理消息时出错: %v", err),
 			}
 			errBytes, _ := json.Marshal(errMsg)
-			c.hub.broadcast <- errBytes
+			c.hub.broadcastToSession(c.SessionID, errBytes)
 			continue
 		}
 
 		// Add assistant message to service
 		c.hub.chatSvc.AddMessage(c.SessionID, "assistant", "assistant", response)
 
-		// Send assistant response
+		// Send assistant response to this session only
 		respMsg := models.WebSocketMessage{
 			Type:    "message",
 			Content: response,
 			UserID:  "assistant",
 		}
 		respBytes, _ := json.Marshal(respMsg)
-		c.hub.broadcast <- respBytes
+		c.hub.broadcastToSession(c.SessionID, respBytes)
 	}
 }
 
@@ -174,7 +175,19 @@ func (c *Client) writePump() {
 	}
 }
 
-// Broadcast sends a message to all connected clients
-func (h *Hub) Broadcast(message []byte) {
-	h.broadcast <- message
+// broadcastToSession sends a message to all clients in a specific session
+func (h *Hub) broadcastToSession(sessionID string, message []byte) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	if sessionClients, ok := h.sessions[sessionID]; ok {
+		for client := range sessionClients {
+			select {
+			case client.send <- message:
+			default:
+				// Client's send channel is full, skip
+				log.Printf("Warning: Could not send message to client %s in session %s", client.ID, sessionID)
+			}
+		}
+	}
 }

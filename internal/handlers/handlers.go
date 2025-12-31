@@ -3,21 +3,22 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-
-	"medseek/internal/service"
-	"medseek/internal/websocket"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+
+	"medseek/internal/service"
+	wshub "medseek/internal/websocket"
 )
 
 type Handler struct {
 	chatSvc *service.ChatService
-	hub     *websocket.Hub
+	hub     *wshub.Hub
 }
 
 // NewHandler creates a new handler
-func NewHandler(chatSvc *service.ChatService, hub *websocket.Hub) *Handler {
+func NewHandler(chatSvc *service.ChatService, hub *wshub.Hub) *Handler {
 	return &Handler{
 		chatSvc: chatSvc,
 		hub:     hub,
@@ -26,7 +27,8 @@ func NewHandler(chatSvc *service.ChatService, hub *websocket.Hub) *Handler {
 
 // CreateSessionRequest represents the request to create a new session
 type CreateSessionRequest struct {
-	UserID string `json:"user_id"`
+	UserID    string `json:"user_id"`
+	Specialty string `json:"specialty"` // "obstetrics" or "pediatrics"
 }
 
 // CreateSessionResponse represents the response when creating a session
@@ -49,7 +51,10 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessionID := uuid.New().String()
-	session := h.chatSvc.CreateSession(sessionID, req.UserID)
+	if req.Specialty == "" {
+		req.Specialty = "obstetrics" // default specialty
+	}
+	session := h.chatSvc.CreateSession(sessionID, req.UserID, req.Specialty)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(CreateSessionResponse{
@@ -60,11 +65,13 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 
 // WebSocketUpgrade upgrades the connection to WebSocket
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:  4096,
+	WriteBufferSize: 4096,
 	CheckOrigin: func(r *http.Request) bool {
 		return true // For development, allow all origins
 	},
+	// iOS Safari WebSocket support
+	HandshakeTimeout: 45 * time.Second,
 }
 
 // WebSocket handles WebSocket connections
